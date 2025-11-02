@@ -717,19 +717,28 @@ public class FileDeleteActivity extends Activity {
                     }
 
                     boolean moveSuccess = false;
-                    boolean isSourceOnSd = StorageUtils.isFileOnSdCard(context, sourceFile);
 
-                    if (isSourceOnSd) {
-                        if (copyFile(sourceFile, destFile)) {
+                    // First, try a simple rename. This is fast and will work for same-volume moves.
+                    if (sourceFile.renameTo(destFile)) {
+                        moveSuccess = true;
+                    } else {
+                        // If rename fails, it's likely a cross-volume move. Fall back to copy-then-delete.
+                        Log.w("FileDeleteActivity", "renameTo failed for " + sourceFile.getAbsolutePath() + ". Falling back to copy-delete.");
+                        if (StorageUtils.copyFile(context, sourceFile, destFile)) {
+                            // Copy was successful, now delete the original.
                             if (StorageUtils.deleteFile(context, sourceFile)) {
                                 moveSuccess = true;
                             } else {
+                                // CRITICAL: If the original can't be deleted, we must delete the copy
+                                // to avoid duplicating the file.
+                                Log.e("FileDeleteActivity", "Failed to delete original file " + sourceFile.getAbsolutePath() + " after copy. Deleting copied file to prevent duplication.");
                                 destFile.delete();
+                                moveSuccess = false;
                             }
-                        }
-                    } else {
-                        if (sourceFile.renameTo(destFile)) {
-                            moveSuccess = true;
+                        } else {
+                            // The copy operation failed.
+                            Log.e("FileDeleteActivity", "Copy-delete fallback failed to copy file: " + sourceFile.getAbsolutePath());
+                            moveSuccess = false;
                         }
                     }
 
@@ -761,31 +770,6 @@ public class FileDeleteActivity extends Activity {
                 Intent resultIntent = new Intent();
                 setResult(Activity.RESULT_OK, resultIntent);
                 finish();
-            }
-        }
-
-        private boolean copyFile(File source, File destination) {
-            InputStream in = null;
-            OutputStream out = null;
-            try {
-                in = new FileInputStream(source);
-                out = new FileOutputStream(destination);
-                byte[] buf = new byte[8192];
-                int len;
-                while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len);
-                }
-                return true;
-            } catch (IOException e) {
-                Log.e("FileDeleteActivity", "Standard file copy failed, attempting with StorageUtils", e);
-                return StorageUtils.copyFile(context, source, destination);
-            } finally {
-                try {
-                    if (in != null) in.close();
-                    if (out != null) out.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
         }
     }
