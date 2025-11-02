@@ -33,6 +33,11 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -440,44 +445,7 @@ public class FileDeleteActivity extends Activity {
     }
 
     private void moveToRecycleBin(List<File> filesToMove) {
-        File recycleBinDir = new File(Environment.getExternalStorageDirectory(), "HFMRecycleBin");
-        if (!recycleBinDir.exists()) {
-            if (!recycleBinDir.mkdir()) {
-                Toast.makeText(this, "Failed to create Recycle Bin folder.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
-
-        int movedCount = 0;
-        for (File sourceFile : filesToMove) {
-            if (sourceFile.exists()) {
-                File destFile = new File(recycleBinDir, sourceFile.getName());
-
-                if (destFile.exists()) {
-                    String name = sourceFile.getName();
-                    String extension = "";
-                    int dotIndex = name.lastIndexOf(".");
-                    if (dotIndex > 0) {
-                        extension = name.substring(dotIndex);
-                        name = name.substring(0, dotIndex);
-                    }
-                    destFile = new File(recycleBinDir, name + "_" + System.currentTimeMillis() + extension);
-                }
-
-                if (sourceFile.renameTo(destFile)) {
-                    movedCount++;
-                    sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(sourceFile)));
-                    sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(destFile)));
-                } else {
-                    Log.w("FileDeleteActivity", "Failed to move file to recycle bin: " + sourceFile.getAbsolutePath());
-                }
-            }
-        }
-
-        Toast.makeText(this, movedCount + " file(s) moved to Recycle Bin.", Toast.LENGTH_LONG).show();
-        Intent resultIntent = new Intent();
-        setResult(Activity.RESULT_OK, resultIntent);
-        finish();
+        new MoveToRecycleTask(filesToMove).execute();
     }
 
     private List<File> findSiblingFiles(File originalFile) {
@@ -700,6 +668,127 @@ public class FileDeleteActivity extends Activity {
             }
             mFilesPendingPermission = null;
             mPendingOperation = null;
+        }
+    }
+
+    private class MoveToRecycleTask extends AsyncTask<Void, Void, List<File>> {
+        private AlertDialog progressDialog;
+        private List<File> filesToMove;
+        private Context context;
+
+        public MoveToRecycleTask(List<File> filesToMove) {
+            this.filesToMove = filesToMove;
+            this.context = FileDeleteActivity.this;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            View dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_progress_simple, null);
+            TextView progressText = dialogView.findViewById(R.id.progress_text);
+            progressText.setText("Moving files to Recycle Bin...");
+            builder.setView(dialogView);
+            builder.setCancelable(false);
+            progressDialog = builder.create();
+            progressDialog.show();
+        }
+
+        @Override
+        protected List<File> doInBackground(Void... voids) {
+            File recycleBinDir = new File(Environment.getExternalStorageDirectory(), "HFMRecycleBin");
+            if (!recycleBinDir.exists()) {
+                if (!recycleBinDir.mkdir()) {
+                    return new ArrayList<>();
+                }
+            }
+
+            List<File> movedFiles = new ArrayList<>();
+            for (File sourceFile : filesToMove) {
+                if (sourceFile.exists()) {
+                    File destFile = new File(recycleBinDir, sourceFile.getName());
+
+                    if (destFile.exists()) {
+                        String name = sourceFile.getName();
+                        String extension = "";
+                        int dotIndex = name.lastIndexOf(".");
+                        if (dotIndex > 0) {
+                            extension = name.substring(dotIndex);
+                            name = name.substring(0, dotIndex);
+                        }
+                        destFile = new File(recycleBinDir, name + "_" + System.currentTimeMillis() + extension);
+                    }
+
+                    boolean moveSuccess = false;
+                    boolean isSourceOnSd = StorageUtils.isFileOnSdCard(context, sourceFile);
+
+                    if (isSourceOnSd) {
+                        if (copyFile(sourceFile, destFile)) {
+                            if (StorageUtils.deleteFile(context, sourceFile)) {
+                                moveSuccess = true;
+                            } else {
+                                destFile.delete();
+                            }
+                        }
+                    } else {
+                        if (sourceFile.renameTo(destFile)) {
+                            moveSuccess = true;
+                        }
+                    }
+
+                    if (moveSuccess) {
+                        movedFiles.add(sourceFile);
+                        sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(sourceFile)));
+                        sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(destFile)));
+                    } else {
+                        Log.w("FileDeleteActivity", "Failed to move file to recycle bin: " + sourceFile.getAbsolutePath());
+                    }
+                }
+            }
+            return movedFiles;
+        }
+
+        @Override
+        protected void onPostExecute(List<File> movedFiles) {
+            progressDialog.dismiss();
+
+            if (movedFiles.isEmpty() && !filesToMove.isEmpty()) {
+                Toast.makeText(context, "Failed to move some or all files.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(context, movedFiles.size() + " file(s) moved to Recycle Bin.", Toast.LENGTH_LONG).show();
+            }
+
+            // Since this activity is designed to close after an operation, we just signal success.
+            // The calling activity will handle the refresh.
+            if (!movedFiles.isEmpty()) {
+                Intent resultIntent = new Intent();
+                setResult(Activity.RESULT_OK, resultIntent);
+                finish();
+            }
+        }
+
+        private boolean copyFile(File source, File destination) {
+            InputStream in = null;
+            OutputStream out = null;
+            try {
+                in = new FileInputStream(source);
+                out = new FileOutputStream(destination);
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+                return true;
+            } catch (IOException e) {
+                Log.e("FileDeleteActivity", "Standard file copy failed, attempting with StorageUtils", e);
+                return StorageUtils.copyFile(context, source, destination);
+            } finally {
+                try {
+                    if (in != null) in.close();
+                    if (out != null) out.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }
