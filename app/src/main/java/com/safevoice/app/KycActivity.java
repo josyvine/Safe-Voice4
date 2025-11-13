@@ -157,8 +157,6 @@ public class KycActivity extends AppCompatActivity {
         @Override
         @SuppressLint("UnsafeOptInUsageError")
         public void analyze(@NonNull ImageProxy imageProxy) {
-            // Use compareAndSet to atomically check and set the flag.
-            // If it's already processing, this returns false and we exit immediately.
             if (!isProcessing.compareAndSet(false, true)) {
                 imageProxy.close();
                 return;
@@ -184,8 +182,6 @@ public class KycActivity extends AppCompatActivity {
                 return;
             }
 
-            // The complete listener runs regardless of success or failure.
-            // It releases the lock and closes the proxy.
             processingTask.addOnCompleteListener(task -> {
                 isProcessing.set(false);
                 imageProxy.close();
@@ -292,7 +288,7 @@ public class KycActivity extends AppCompatActivity {
         if (isFinishing() || isDestroyed()) return;
         currentState = KycState.COMPLETE;
         updateUIForState();
-        Toast.makeText(this, "Verification Failed: " + reason, Toast.LENGTH_long).show();
+        Toast.makeText(this, "Verification Failed: " + reason, Toast.LENGTH_LONG).show();
         new android.os.Handler(Looper.getMainLooper()).postDelayed(this::finish, 3000);
     }
 
@@ -315,8 +311,6 @@ public class KycActivity extends AppCompatActivity {
                 .setCancelable(false)
                 .show());
     }
-
-
 
     @Override
     protected void onDestroy() {
