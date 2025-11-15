@@ -1,7 +1,7 @@
 <resources>
     <!-- App Identity -->
     <string name="app_name">Safe Voice</string>
-    
+
     <!-- THIS IS THE NEW STRING REQUIRED FOR GOOGLE SIGN-IN -->
     <!-- It is copied from your google-services.json file -->
     <string name="default_web_client_id">1013718891067-ogca31bvt1f2rvcf0jed41gccienmdg8.apps.googleusercontent.com</string>
@@ -42,7 +42,7 @@
     <!-- Contacts Fragment -->
     <string name="contacts_primary_contact_header">Primary Contact (for Phone Calls)</string>
     <string name="contacts_add_primary_button">Set Primary Contact</string>
-    <string name="contacts_secondary_contacts_header">Priority Contacts (for SMS Alerts)</string>
+    <string name="contacts_secondary_contacts_header">In-App Contacts (for Online Alerts)</string>
     <string name="contacts_add_contact_button">Add New Contact</string>
     <string name="contact_name_hint">Contact Name</string>
     <string name="contact_phone_hint">Phone Number</string>
@@ -73,5 +73,35 @@
     <string name="kyc_instructions_face">Now, position your face in the frame.</string>
     <string name="kyc_status_verifying">Verifying...</string>
     <string name="face_guide_box">Face guide box</string>
+
+
+    <!-- New Strings for Connection/Contact System -->
+    <string name="contact_email_hint">Search user by email</string>
+    <string name="contacts_incoming_requests_header">Incoming Connection Requests</string>
+    <string name="contacts_no_requests">No pending requests.</string>
+    <string name="contacts_send_request_button">Send New Connection Request</string>
+    <string name="request_sent_success">Connection request sent.</string>
+    <string name="user_not_found">User not found. Please check the email address.</string>
+    <string name="cannot_add_self">You cannot add yourself as a contact.</string>
+    <string name="already_a_contact">This user is already in your contacts.</string>
+    <string name="request_already_sent">A request has already been sent to this user.</string>
+
+    <!-- New Strings for WebRTC/Twilio Settings -->
+    <string name="settings_webrtc_header">In-App Call Settings</string>
+    <string name="settings_call_preference_title">Preferred Online Call Method</string>
+    <string name="settings_call_preference_standard">Standard Phone Call</string>
+    <string name="settings_call_preference_webrtc">In-App Voice Call</string>
+    <string name="settings_twilio_header">Custom TURN Server (Optional)</string>
+    <string name="settings_twilio_account_sid_hint">Twilio Account SID</string>
+    <string name="settings_twilio_api_key_hint">API Key</string>
+    <string name="settings_twilio_api_secret_hint">API Secret</string>
+    <string name="settings_save_twilio_button">Save Twilio Credentials</string>
+    <string name="twilio_credentials_saved">Twilio credentials saved successfully.</string>
+    <string name="twilio_credentials_failed">Failed to save Twilio credentials.</string>
+
+    <!-- New Strings for Emergency Pop-up -->
+    <string name="emergency_popup_title">EMERGENCY ALERT</string>
+    <string name="join_call_button">Join In-App Call</string>
+    <string name="call_back_button">Call Back (Standard)</string>
 
 </resources>
